@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hello World | Node.js 服务器时间</title>
+  <meta name="description" content="一个用 Node.js 搭建的 Hello World 网站，实时显示当前服务器时间。" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="card">
+    <header class="card__header">
+      <span class="dot" aria-hidden="true"></span>
+      <span class="badge">Node.js · 零依赖</span>
+    </header>
+
+    <h1 class="hello">Hello World!</h1>
+    <p class="subtitle">这是用 Node.js 原生 <code>http</code> 模块搭建的第一个网站</p>
+
+    <!-- 时间面板：服务器渲染的首屏值 + 前端每秒刷新 -->
+    <section class="time-panel" aria-live="polite">
+      <div class="time-panel__label">
+        <span>当前服务器时间</span>
+        <span class="status" id="status" data-state="ok">
+          <i class="status__dot" aria-hidden="true"></i>
+          <span id="status-text">已连接</span>
+        </span>
+      </div>
+
+      <div class="clock" id="clock">__SERVER_CLOCK__</div>
+
+      <div class="date-line">
+        <span id="date-text">__SERVER_DATE__</span>
+        <span class="divider"></span>
+        <span id="weekday-text">__SERVER_WEEKDAY__</span>
+      </div>
+
+      <div class="meta">
+        <span>完整时间：<strong id="full-time">__SERVER_TIME__</strong></span>
+        <span>时区：<strong id="timezone">__SERVER_TIMEZONE__</strong></span>
+        <span>已运行：<strong id="uptime">__SERVER_UPTIME__</strong></span>
+        <span>启动于：<strong id="start-at">__SERVER_START__</strong></span>
+        <span>Node 版本：<strong id="node-version">__SERVER_NODE_VERSION__</strong></span>
+      </div>
+    </section>
+
+    <footer class="card__footer">
+      <p>数据来源：<code>GET /api/time</code> · 每 1 秒自动同步服务器时间</p>
+      <button type="button" id="refresh" class="btn">立即刷新</button>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const els = {
+        clock: document.getElementById('clock'),
+        dateText: document.getElementById('date-text'),
+        weekdayText: document.getElementById('weekday-text'),
+        fullTime: document.getElementById('full-time'),
+        timezone: document.getElementById('timezone'),
+        uptime: document.getElementById('uptime'),
+        startAt: document.getElementById('start-at'),
+        nodeVersion: document.getElementById('node-version'),
+        status: document.getElementById('status'),
+        statusText: document.getElementById('status-text'),
+        refresh: document.getElementById('refresh')
+      };
+
+      // 把服务端返回的时间数据渲染到页面上
+      function renderTime(data) {
+        els.clock.textContent = data.timeText;
+        els.dateText.textContent = data.dateText;
+        els.weekdayText.textContent = data.weekday;
+        els.fullTime.textContent = data.text;
+        els.timezone.textContent = data.timeZone;
+        els.uptime.textContent = data.uptime;
+        els.startAt.textContent = data.serverStartAt;
+        els.nodeVersion.textContent = data.nodeVersion;
+      }
+
+      function setStatus(state, text) {
+        els.status.dataset.state = state;
+        els.statusText.textContent = text;
+      }
+
+      let timerId = null;
+      let lastSyncAt = 0;
+
+      // 每秒向服务器拉取一次时间；断开时自动降级并在本地延续走时
+      async function syncTime() {
+        try {
+          const response = await fetch('/api/time', { cache: 'no-store' });
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          const data = await response.json();
+          if (!data || !data.ok) throw new Error('接口返回异常');
+
+          renderTime(data);
+          lastSyncAt = Date.now();
+          setStatus('ok', '已连接');
+        } catch (error) {
+          setStatus('error', '连接中断 · 本地延续计时');
+          // 断线时在客户端先把秒数加 1，保持视觉连续
+          tickLocally();
+        }
+      }
+
+      // 本地补时：只用于网络中断时，避免时钟停住
+      function tickLocally() {
+        const text = els.clock.textContent || '00:00:00';
+        const parts = text.split(':').map(Number);
+        if (parts.length !== 3 || parts.some(Number.isNaN)) return;
+
+        let [h, m, s] = parts;
+        s += 1;
+        if (s >= 60) { s = 0; m += 1; }
+        if (m >= 60) { m = 0; h += 1; }
+        if (h >= 24) { h = 0; }
+
+        const pad = function (n) { return String(n).padStart(2, '0'); };
+        els.clock.textContent = pad(h) + ':' + pad(m) + ':' + pad(s);
+      }
+
+      function start() {
+        syncTime();
+        if (timerId) clearInterval(timerId);
+        timerId = setInterval(syncTime, 1000);
+      }
+
+      els.refresh.addEventListener('click', function () {
+        setStatus('ok', '正在刷新…');
+        syncTime();
+      });
+
+      // 页面切回前台时立即同步一次，避免后台标签页计时漂移
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) syncTime();
+      });
+
+      start();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "name": "hello-world-nodejs",
+  "version": "1.2.0",
+  "description": "一个零依赖的 Node.js 网站：首页显示 Hello World! 并实时展示服务器时间，可选 HTTPS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "open": "bash scripts/start.sh",
+    "open:https": "bash scripts/start.sh --https",
+    "cert": "bash scripts/gen-cert.sh",
+    "dev": "node --watch server.js",
+    "stop": "bash scripts/stop.sh"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "nodejs",
+    "hello-world",
+    "http",
+    "https",
+    "server-time"
+  ],
+  "author": "",
+  "license": "MIT",
+  "private": true
+}
